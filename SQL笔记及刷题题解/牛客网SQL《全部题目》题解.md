@@ -2414,6 +2414,24 @@ join
 
 
 
+# -SQL276(中等)
+
+![image-20240517233939352](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240517233939352.png)
+
+**写一个sql语句查询在2025-10-15以后，同一个用户下单2个及2个以上状态为购买成功的C++课程或Java课程或python课程的订单id，是否拼团以及客户端名字信息，最后一列如果是非拼团订单，则显示对应客户端名字，如果是拼团订单，则显示null，并且按照order_info的id升序排序**
+
+## 梳理思路
+
+1、
+
+
+
+
+
+
+
+
+
 
 
 
