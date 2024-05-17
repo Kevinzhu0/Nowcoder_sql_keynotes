@@ -2422,7 +2422,53 @@ join
 
 ## 梳理思路
 
-1、
+1、复用sql272中使用窗口函数对user_id进行分组对用户下单数进行计数的代码；将查询字段改成并添加，字段一共有：user_id、client_id、id、is_group_buy、count(*)over(partition by user_id) ct;
+
+2、将步骤1作为子查询，新建一个外查询，选择字段：id，is_group_buy，client_id查询，其中client_id为和client表格的连接键；添加筛选条件：where rt1.ct>=2; 添加排序条件：order by id;
+
+3、将步骤2作为新表和client表格连接，连接键为client_id；但是题目要求，拼团成功不计客户端，拼团不成功则计算客户端，所以
+
+思路是：以步骤2的新表作为主表左连接left join client;
+
+4、给外查询添加一个升序排序条件：order by id；
+
+
+
+## 组合代码
+
+~~~mysql
+select rt2.id
+,rt2.is_group_buy
+,c.name
+from
+(
+    select id
+    ,is_group_buy
+    ,client_id
+    from
+    (
+        select user_id
+        ,client_id
+        ,id
+        ,is_group_buy
+        ,count(*)over(partition by user_id) ct
+        from order_info
+        where date>'2025-10-15' and status='completed' 
+        and (product_name='C++' or product_name='Java' or product_name='Python')
+    ) rt1
+    where rt1.ct>=2
+    order by id
+) rt2 left join client c on rt2.client_id=c.id
+order by id
+~~~
+
+
+
+
+
+
+
+
 
 
 
