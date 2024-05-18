@@ -2708,9 +2708,48 @@ where (number2 < s1 and number1 >= s1) or (number2 < s2 and number1 >= s2)
 
 
 
+# -SQL283(中等)
+
+**获得积分最多的人(一)**
+
+![image-20240518174240598](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240518174240598.png)
+
+## 梳理思路
+
+1、按题目意思，核心思路：先以user_id为聚合依据，对grade_num进行求和并根据grade_num 进行降序排序sum(grade_num)over(partition by user_id order by grade_num)；
+
+2、然后再以步骤1为子查询，新建一个外查询，并且新建窗口函数row_number()over(partition by user_id order by rt1.sum_grade(对积分的求和))；
+
+3、再新建一层外查询，以步骤2为子查询，筛选出积分的和sum最高的user_id和sum值(唯一值)；
+
+4、与用户表user进行连接，连接键就为user.id，最终查询出题目要求的字段；
 
 
 
+## 组合代码
+
+~~~mysql
+select user.name
+,rt3.sum_grade
+from
+(
+    select rt2.user_id user_id
+    ,rt2.sum_grade sum_grade
+    from
+    (
+        select rt1.user_id user_id
+        ,rt1.sum_grade sum_grade
+        ,row_number()over(order by sum_grade desc) rk
+        from
+        (
+            select user_id
+            ,sum(grade_num)over(partition by user_id order by grade_num desc) sum_grade
+            from grade_info
+        ) rt1
+    ) rt2
+    where rt2.rk=1
+) rt3 join user on rt3.user_id=user.id
+~~~
 
 
 
