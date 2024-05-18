@@ -2466,9 +2466,55 @@ order by id
 
 
 
+# -SQL277(较难)
+
+**请你写出一个sql语句查询在2025-10-15以后，同一个用户下单2个以及2个以上状态为购买成功的C++课程或Java课程或Python课程的来源信息，第一列是显示的是客户端名字，如果是拼团订单则显示GroupBuy，第二列显示这个客户端(或者是拼团订单)有多少订单**
+
+![image-20240518110132505](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240518110132505.png)
 
 
 
+## 梳理思路
+
+首先，先梳理一下该题跟前几个同类型的sql题的区别：题目要求，拼团订单和客户端单独下单的订单数量需要分开计算，但是题目的要求“同一个用户下单2个及2个以上状态为购买成功的C++......”没有改变；
+
+1、复用sql276的代码部分，先筛选出同一个用户下单2个及2个以上状态为购买成功的C++课程或Java课程或python课程的来源信息等...并且以连接键client_id和client表左连接；
+
+2、以source(client.name)为group by聚合依据，cout(*) cnt对分组的数据进行计数，从而符合题目要求；
+
+3、对于client.name为null的值用ifnull(c.name,'GroupBuy')函数来替换None值为'GroupBuy'；
+
+4、添加升序排序条件order by source；
+
+
+
+## 组合代码
+
+~~~mysql
+select ifnull(c.name,'GroupBuy') source
+,count(*) cnt
+from
+(
+    select id
+    ,is_group_buy
+    ,client_id
+    from
+    (
+        select user_id
+        ,client_id
+        ,id
+        ,is_group_buy
+        ,count(*)over(partition by user_id) ct
+        from order_info
+        where date>'2025-10-15' and status='completed' 
+        and (product_name='C++' or product_name='Java' or product_name='Python')
+    ) rt1
+    where rt1.ct>=2
+    order by id
+) rt2 left join client c on rt2.client_id=c.id
+group by 1
+order by source
+~~~
 
 
 
