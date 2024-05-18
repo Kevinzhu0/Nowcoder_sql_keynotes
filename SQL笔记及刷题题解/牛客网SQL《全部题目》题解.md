@@ -2641,11 +2641,31 @@ join
 
 
 
+# -SQL281(中等)
+
+**最差是第几名**
+
+![image-20240518155857524](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240518155857524.png)
 
 
 
+## 梳理思路
+
+1、题目解读：“写一个SQL查询，如果一个学生知道了自己综合成绩grade之后，还能推测出自己最差是排第几名，结果按照**grade升序**排序”;
+
+2、直接使用窗口函数的rows指定顺序和范围运算，sum(number)over(order by grade rows between unbounded preceding and current row) t_rank;
+
+3、本质上题目的意思还是根据grade排序，然后根据每个grade有多少number数量进行从上到下的数量累加；
 
 
+
+## 组合代码
+
+~~~mysql
+select grade
+,sum(class_grade.number)over(order by grade rows between unbounded preceding and current row) t_rank
+from class_grade
+~~~
 
 
 
