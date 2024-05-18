@@ -2551,6 +2551,36 @@ order by cnt desc
 
 
 
+# -SQL279(中等)
+
+**请你写出SQL语句查询在2025年内投递简历的每个岗位，每一个月内收到简历的数量，并且按先按月份降序排序，再按简历数目降序排序**
+
+![image-20240518114849813](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240518114849813.png)
+
+
+
+## 梳理思路
+
+先解读一下题目的意思："按照job岗位和月份mon进行分组聚合，从而对每个岗位每个月份所投递的简历数量进行sum求和，并先按照月份降序排序然后再按照简历数目降序排序"；
+
+1、本题的核心就是要设法将date日期中的月份给筛出来，并对其进行分组聚合，使用日期格式化函数date_format(date,format)--将日期格式化成"year-month"；
+
+2、然后按照job岗位和月份month进行group by分组聚合，然后再select使用聚合函数sum(num) cnt对投递数量进行求和；
+
+
+
+## 组合代码
+
+~~~mysql
+select job
+,date_format(date,'%Y-%m') mon
+,sum(num) cnt
+from resume_info
+where year(date)=2025
+group by 1,2
+order by mon desc,cnt desc
+~~~
+
 
 
 
