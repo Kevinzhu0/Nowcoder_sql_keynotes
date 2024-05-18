@@ -2096,7 +2096,7 @@ order by rt.name,rt.score desc,rt.id
 
 ~~~mysql
 select  job
-,floor((cou	nt(*)+1)/2) 'start'
+,floor((count(*)+1)/2) 'start'
 ,ceil((count(*)+1)/2) 'end'
 from grade
 group by job
@@ -2666,6 +2666,47 @@ select grade
 ,sum(class_grade.number)over(order by grade rows between unbounded preceding and current row) t_rank
 from class_grade
 ~~~
+
+
+
+# SQL282(较难)
+
+![image-20240518164454904](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240518164454904.png)
+
+**老师想知道学生们的综合成绩的中位数是什么挡位的，如果只有一个中位数，那么输出1个，如果有2个中位数，按grade升序输出；**
+
+## 梳理思路
+
+1、题目解读："总的来说，题目的意思就是根据班级成员数量number/成绩表中的number是偶数还是单数来匹配回原表中去，筛选出这个综合成绩的中位数会落在哪个挡位上：例如：A,A,B,B,B,B,C,C,C,C,D,D，共12个数，取中间的2个，取6，7为B,C"；
+
+2、首先，先对班级成绩表class_grade中number进行sum(number)求和，以及round(sum(number)/2,0) ，round((sum(number)+1)/2,0)对，对sum(number)进行四舍五入，结果如果有小数则向上取整、若是整数则直接得出结果，保留小数点后0位；
+
+3、其次，对步骤2的查询作为一个子查询，新建一个外查询(在SQL281的题的背景下)，计算每个grade的最差排名，用lag(number1,1,0)查询当前行的上一行的值(最差排名)；
+
+4、添加一个where的筛选条件：where (number2 < s1 and number1 >= s1) or (number2 < s2 and number1 >= s2)，这一句代码的目的是：判断中位数会落在哪个等级上，当sum(number)为偶数时，那么有俩中位数，那么就得限制这俩数(排名)落在哪个排名的范围中，其中较小的那个数和以grade分组的number1作比较：number1 >= s1，但是也得和number1前面那个等级的排名number2对比：number2 < s1；其中较大的那个数也同理，如果s1=s2的话那么sum(number)为奇数，按照题目意思：奇数只有一位中位数，此时or两边的条件取值范围是一致的，结果只会落到一个成绩等级上；
+
+
+
+## 组合代码
+
+~~~mysql
+select grade 
+from
+(
+    select *
+    ,lag(number1,1,0) over() as number2 
+    from 
+    (
+        select *, sum(number) over(order by grade) number1 
+        ,(select round(sum(number)/2,0) from class_grade) s1
+        ,(select round((sum(number)+1)/2,0) from class_grade) s2
+        from class_grade
+    ) s
+) s3
+where (number2 < s1 and number1 >= s1) or (number2 < s2 and number1 >= s2)
+~~~
+
+
 
 
 
