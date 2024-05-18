@@ -2855,14 +2855,6 @@ group by 1,2,3
 
 
 
-
-
-
-
-
-
-
-
 # -SQL286(中等，网易校招笔试题)
 
 ![image-20240511210126641](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240511210126641.png)
@@ -2898,6 +2890,56 @@ group by 1
 having total>20 and weight<50
 order by g.id asc
 ~~~
+
+
+
+# -SQL287( **网易云音乐推荐(网易校招笔试真题)**)
+
+![image-20240518194130902](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240518194130902.png)
+
+**请你编写一个SQL，查询向user_id=1的用户，推荐其关注的人喜欢的音乐。不要推荐该用户已经喜欢的音乐，并且按照music的id升序排列。返回的结果中不应当包含重复项；**
+
+## 梳理思路
+
+1、根据题目要求，先查询出user_id=1的用户的关注者的follow_id；然后根据这个id和音乐music_likes表连接，查询出music_id；然后根据这个id和音乐music表连接，查询出music_name:最后符合题目要求查询的字段；-----修改为where in的思路，具体看组合代码；
+
+2、但是题目要求不能推荐用户已经喜欢的音乐，所以得在music_likes表中筛选出user_id=1的用户喜欢的音乐id,然后在下一步的查询中使用where not in(...)即可筛选掉用户自己已经喜欢的音乐；
+
+
+
+## 组合代码
+
+~~~mysql
+select music_name
+from music
+where id in
+(
+    select music_id
+    from music_likes
+    where user_id in
+    (
+        select follower_id
+        from follow
+        where user_id=1
+    )
+)
+and id not in
+(
+    select music_id
+    from music_likes
+    where user_id=1
+)
+~~~
+
+
+
+
+
+
+
+
+
+
 
 
 
