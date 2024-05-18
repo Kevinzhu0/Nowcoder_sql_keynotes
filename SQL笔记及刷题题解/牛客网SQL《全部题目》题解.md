@@ -2933,6 +2933,38 @@ and id not in
 
 
 
+# -sql288(中等)
+
+![image-20240518201923059](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240518201923059.png)
+
+**请你写出一个SQL，查找出当天(对，就是你现在写代码的这一天，实现原理就是后台有特殊程序会将'2999-02-22'这个东西变为今天的日期，并且将'2999-02-21'变为昨天的日期)的每个题单的刷题量，先按提交数量降序排序，如果提交数量一样的话，再按subject_id升序排序**
+
+## 梳理思路
+
+1、题目一直有在强调，查找出当天的每个题单的刷题量，每天在这题就用'2999-02-22'来表示，依据这个提示可知应该添加一个where的筛选条件“where create_time='2999-02-22' ”;
+
+2、根据题目要求，首先在submission(代码提交表)中查询，以subject_id为聚合依据，并在select添加聚合函数count(*) cnt；
+
+3、步骤2查询出结果之后和题单(subject)连接，连接键为id，即为上一步的subject_id；查找出题单名称name以及cnt数量；
+
+
+
+## 组合代码
+
+~~~mysql
+#程序出现bug，代码无法提交通过
+select subject.name name
+,rt1.cnt cnt
+from
+(
+    select subject_id
+    ,count(*)over(partition by subject_id) cnt
+    from submission
+    where create_time='2999-02-22'
+) rt1 join subject on rt1.subject_id=subject.id
+order by cnt desc,subject.id
+~~~
+
 
 
 
