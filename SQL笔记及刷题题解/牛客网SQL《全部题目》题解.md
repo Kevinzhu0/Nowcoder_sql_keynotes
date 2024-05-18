@@ -2482,7 +2482,7 @@ order by id
 
 2、以source(client.name)为group by聚合依据，cout(*) cnt对分组的数据进行计数，从而符合题目要求；
 
-3、对于client.name为null的值用ifnull(c.name,'GroupBuy')函数来替换None值为'GroupBuy'；
+3、对于client.name为null的值用**ifnull**(c.name,'GroupBuy')函数来替换None值为'GroupBuy'；
 
 4、添加升序排序条件order by source；
 
@@ -2514,6 +2514,39 @@ from
 ) rt2 left join client c on rt2.client_id=c.id
 group by 1
 order by source
+~~~
+
+
+
+# -SQL278(简单)
+
+**请你写出SQL语句查询在2025年内投递简历的岗位和数量，并且按数量降序排序**
+
+![image-20240518113716289](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240518113716289.png)
+
+
+
+## 梳理思路
+
+根据题目要求，查询2025年内--“where筛选条件1”、查询出对应年份下的岗位和数量--”group by job,sum(...)“、并且按照数量降序排序"order by sum(...) desc";
+
+1、首先对年份的筛选条件进行思考--”where year(date)=2025“;
+
+2、sum(num) cnt group by job对job岗位进行分组去重统计sum计算总的投递数量;
+
+3、按照总投递数量降序排序order by cnt desc;
+
+
+
+## 组合代码
+
+~~~mysql
+select job
+,sum(num) cnt
+from resume_info
+where year(date)=2025
+group by 1
+order by cnt desc
 ~~~
 
 
