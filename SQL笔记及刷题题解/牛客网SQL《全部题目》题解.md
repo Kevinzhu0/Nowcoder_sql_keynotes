@@ -2569,6 +2569,8 @@ order by cnt desc
 
 
 
+
+
 ## 组合代码
 
 ~~~mysql
@@ -2580,6 +2582,72 @@ where year(date)=2025
 group by 1,2
 order by mon desc,cnt desc
 ~~~
+
+
+
+# -SQL280(困难)
+
+**请你写出SQL语句查询在2025年投递简历的每个岗位，每一个月内收到简历的数目，和对应的2026年的同一个月同岗位，收到简历的数目，最后的结果先按first_year_mon月份降序，再按job降序排序显示**
+
+![image-20240518121116896](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240518121116896.png)
+
+
+
+## 梳理思路
+
+1、先进行题目意思解读，"将两个不同年份的同一月份的同一岗位的投递简历数量总和放在同一行中查询出来，并分别对当年的该月份进行计数"；
+
+2、主要的思路还是跟SQL279一样，对job和对应年份的month进行group by分组聚合，并使用聚合函数sum对对应分组下的num进行sum求和；如何求第二年的对应岗位和月份的简历投递数量呢？
+
+3、将SQL279的解题套路再实施一遍，修改where的年份筛选条件，筛选出2026年的简历投递记录，求和计数sum跟上题SQL279的思路一样,但需要添加一个月份字段month1&2，因为题目要求将两个不同年份的同一个月份的同一个岗位的投递简历的数量总和放在同一行中查询出来，为了后续的表连接；然后将此表与SQL279的表格进行连接，连接键为job和month，最后根据题目要求把需要的字段查询出结果；
+
+4、修改排序规则：最后的结果先按first_year_mon月份降序，再按job降序排序；
+
+
+
+## 组合代码
+
+~~~mysql
+select rt1.job
+,first_year_mon
+,first_year_cnt
+,second_year_mon
+,second_year_cnt
+from
+(
+    select job
+    ,date_format(date,'%Y-%m') first_year_mon
+    ,month(date) month1
+    ,sum(num) first_year_cnt
+    from resume_info
+    where year(date)=2025
+    group by 1,2,3
+    order by first_year_mon desc,job desc
+) rt1
+
+join
+
+(
+    select job
+    ,date_format(date,'%Y-%m') second_year_mon
+    ,month(date) month2
+    ,sum(num) second_year_cnt
+    from resume_info
+    where year(date)=2026
+    group by 1,2,3
+    order by second_year_mon desc,job desc
+) rt2 on rt1.job=rt2.job and rt1.month1=rt2.month2
+~~~
+
+
+
+
+
+
+
+
+
+
 
 
 
