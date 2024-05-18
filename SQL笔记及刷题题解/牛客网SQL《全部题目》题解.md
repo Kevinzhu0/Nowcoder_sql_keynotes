@@ -2753,7 +2753,47 @@ from
 
 
 
+# -SQL284(较难)
 
+**请你写一个SQL查找积分增加最高的用户的id(可能有多个)，名字，以及他的总积分是多少，查询结果按照id升序排序**
+
+![image-20240518182237977](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240518182237977.png)
+
+## 梳理思路
+
+1、乍一看，跟上一题sql283在字段查询上就增加一个用户id字段以及积分增加最高的用户不止一个了(可能有多个)；
+
+2、核心思路：修改排序窗口函数为dense_rank()over()，这个排序序号不唯一的排序函数；
+
+3、复用SQL283的代码；
+
+
+
+## 组合代码
+
+~~~mysql
+select user.id
+,user.name
+,rt3.sum_grade
+from
+(
+    select rt2.user_id user_id
+    ,rt2.sum_grade sum_grade
+    from
+    (
+        select rt1.user_id user_id
+        ,rt1.sum_grade sum_grade
+        ,dense_rank()over(order by sum_grade desc) rk
+        from
+        (
+            select user_id
+            ,sum(grade_num)over(partition by user_id order by grade_num desc) sum_grade
+            from grade_info
+        ) rt1
+    ) rt2
+    where rt2.rk=1
+) rt3 join user on rt3.user_id=user.id
+~~~
 
 
 
