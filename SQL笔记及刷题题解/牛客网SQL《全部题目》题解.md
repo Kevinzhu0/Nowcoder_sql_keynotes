@@ -2797,6 +2797,64 @@ from
 
 
 
+# -SQL285(困难)
+
+**请你写一个SQL查找积分最高的用户的id，名字，以及他的总积分是多少(可能有多个)，查询结果按照id升序排序**
+
+![image-20240518183113987](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240518183113987.png)
+
+## 梳理思路
+
+1、按照题目意思，总思路跟SQL284的核心思路差不多，但是就是得区分type用户反馈类型是add还是reduce，如果是add则sum求和如果是reduce则减去对应数字；
+
+2、核心思路：对add和reduce两个类型的记录分别求和，然后根据user_id连接起来，连接关系为左连接，因为如果为内连接的画，当type为reduce的积分为0的话就匹配不上对应的user_id，会被剔除掉记录，取求和的字段，用add类型的求和值减去reduce类型的求和值即为最终的积分增长的数值，然后对这个数值再进行排序取数值最高(排名第一的)；
+
+3、给type为reduce的sum值加上ifnull函数，当reduce_grade为null时，赋值0；具体写法：(g1.add_grade - ifnull(g2.reduce_grade,0)) last_grade
+
+4、再和用户user表连接，连接键为user_id，查询出题目要求的所有字段；
+
+5、最后添加user.id,user.name,rt2.last_grade为group by的聚合依据：group by 1,2,3;
+
+
+
+## 组合代码
+
+~~~mysql
+select user.id
+,user.name
+,rt2.last_grade
+from
+(
+    select rt1.user_id
+    ,rt1.last_grade last_grade
+    ,dense_rank()over(order by last_grade desc) rk
+    from
+    (
+        select g1.user_id user_id
+        ,(g1.add_grade - ifnull(g2.reduce_grade,0)) last_grade
+        from
+        (
+            select user_id
+            ,sum(grade_num)over(partition by user_id order by grade_num desc) add_grade
+            from grade_info
+            where grade_info.type='add'
+        ) g1 left join
+        (
+            select user_id
+            ,sum(grade_num)over(partition by user_id order by grade_num desc) reduce_grade
+            from grade_info
+            where grade_info.type='reduce'
+        ) g2 on g1.user_id=g2.user_id
+    ) rt1
+) rt2 join user on user.id=rt2.user_id
+where rt2.rk=1
+group by 1,2,3
+~~~
+
+
+
+
+
 
 
 
