@@ -56,3 +56,43 @@ join
 order by avg_comp_play_rate desc
 ~~~
 
+
+
+## **SQL157** **平均播放进度大于60%的视频类别**
+
+![image-20240520232002862](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240520232002862.png)
+
+**计算各类视频的平均播放进度，将进度大于60%的类别输出**
+
+### 梳理思路
+
+1、首先梳理清楚播放进度公式：播放进度=播放时长/视频时长*100%，当播放时长大于视频时长时，播放进度均记为100%；结果保留两位小数，并按**播放进度**倒序排序；
+
+2、分别计算播放时长和查询出视频时长；
+
+3、播放时长=timestampdiff(second, start_time, end_time)；用户视频互动表tb_user_video_log和短视频信息表tb_video_info；连接键为video_id，同时增加字段：计算各类视频的平均播放进度avg_play_progress,使用case...when...then...else...end函数，将视频的播放时长>视频时长的视频进度记为1，否则通过计算公式：else timestampdiff(second, start_time, end_time)/duration end)*100,2),'%')计算平均播放进度；以视频的类别标签tag作为分组聚合的标签
+
+4、最后再新建一个外查询，添加where筛选条件：将平均播放进度大于60%的类别输出where replace(avg_play_progress,'%','') > 60；查询出题目要求的字段：a.tag, avg_play_progress；
+
+5、最后添加一个排序规则：order by avg_play_progress DESC；以平均播放进度降序排序；
+
+### 组合代码
+
+~~~mysql
+select a.tag
+, avg_play_progress
+from 
+(
+    select tag
+    ,concat(round(avg(case when timestampdiff(second, start_time, end_time) >= duration then 1 else timestampdiff(second, start_time, end_time)/duration end)*100,2),'%') avg_play_progress
+    from tb_user_video_log t1
+    join tb_video_info t2
+    on t1.video_id=t2.video_id
+    group by tag
+) a
+where replace(avg_play_progress,'%','') > 60
+order by avg_play_progress DESC
+~~~
+
+
+
