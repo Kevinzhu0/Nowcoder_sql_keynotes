@@ -96,3 +96,63 @@ order by avg_play_progress DESC
 
 
 
+## **SQL158** **每类视频近一个月的转发量/率**
+
+### ![image-20240522100512230](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240522100512230.png)
+
+### 梳理思路
+
+**统计在有用户互动的最近一个月(按包含当天在内的近30天算，比如10月31日的近30天为10.2--10.31之间的数据)中，每类视频的转发量和转发率(保留3位小数)**
+
+注：转发率=转发量/播放量
+
+1、分别计算视频的播放量和转发量；视频播放量：count(video_log.video_id)、视频转发量：sum(video_log.if_retweet) retweet_count；
+
+2、筛选条件：datediff #筛选近30天的用户互动记录
+
+(
+
+  date
+
+  (
+
+​    (select max(start_time) from tb_user_video_log)
+
+  )
+
+  ,date(start_time)
+
+) <= 29 ；
+
+3、连接两表的连接键为video_id；
+
+4、聚合依据为video_info.tag；
+
+5、以retweet_rate为排序依据，降序排序；
+
+6、计算转发率的公式为：round(sum(video_log.if_retweet)/count(video_log.video_id),3) retweet_rate；
+
+
+
+### 组合代码
+
+~~~mysql
+select video_info.tag
+,sum(video_log.if_retweet) retweet_count
+,round(sum(video_log.if_retweet)/count(video_log.video_id),3) retweet_rate
+from tb_user_video_log video_log join tb_video_info video_info on
+video_log.video_id=video_info.video_id
+where datediff #筛选近30天的用户互动记录
+(
+    date
+    (
+        (select max(start_time) from tb_user_video_log)
+    )
+    ,date(start_time)
+) <= 29
+group by 1
+order by retweet_rate desc
+~~~
+
+
+
