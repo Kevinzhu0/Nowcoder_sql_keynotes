@@ -156,3 +156,54 @@ order by retweet_rate desc
 
 
 
+## **SQL159** **每个创作者每月的涨粉率及截止当前的总粉丝量**
+
+![image-20240522110044530](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240522110044530.png)
+
+**题目：计算2021年里每个创作者每月的涨粉率及截至当月的总粉丝量**
+
+涨粉率=（加粉量-掉粉量）/ 播放量，结果按创作者ID、总粉丝量升序排序；
+
+if_follow-是否关注字段的解释：if_follow为1表示用户观看视频中关注了视频创作者，为0表示此次互动前后关注状态为发生变化，为2表示本次观看过程中取消了关注；
+
+### 梳理思路
+
+**本题的核心是计算涨粉数量**
+
+1、目标字段：author创作者、month每个月月份、fans_growth_rate每个月的涨粉率和粉丝总量total_fans;
+
+2、筛选条件：year(start_time)=2021 and year(end_time),或者通过新增一个年份字段,然后作为连接字段,或者；“计算2021年里每个创作者每月的涨粉率及截至当月的总粉丝量”；还需要筛选if_follow字段是0、1、2；
+
+3、筛选if_follow，case when if_follow=2 then -1 else if_follow end;
+
+4、用date_format(start_time，'%Y-%m') ;
+
+
+
+### 组合代码
+
+~~~mysql
+with
+    main as(
+        #统计每个用户的播放量、加粉量、掉粉量
+        select 
+            author,
+            mid(start_time,1,7) as month,
+            count(start_time) as b,
+            count(if(if_follow = 1, 1, null)) as follow_add,
+            count(if(if_follow = 2, 1, null)) as follow_sub
+        from tb_user_video_log a, tb_video_info b
+        where a.video_id = b.video_id
+        and year(start_time) = 2021
+        group by author,month
+    )
+#计算2021年里每个创作者每月的涨粉率及截止当月的总粉丝量
+select 
+    author,
+    month,
+    round((follow_add-follow_sub)/b ,3) as fans_growth_rate,
+    sum(follow_add-follow_sub) over(partition by author order by month) as total_fans
+from main
+order by author,total_fans
+~~~
+
