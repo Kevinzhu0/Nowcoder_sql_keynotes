@@ -170,7 +170,7 @@ if_follow-是否关注字段的解释：if_follow为1表示用户观看视频中
 
 **本题的核心是计算涨粉数量**
 
-1、目标字段：author创作者、month每个月月份、fans_growth_rate每个月的涨粉率和粉丝总量total_fans;
+1、目标字段：author创作者、month每个月月份、fans_growth_rate每个月的涨粉率和截止当月的总粉丝量total_fans;
 
 2、筛选条件：year(start_time)=2021 and year(end_time),或者通过新增一个年份字段,然后作为连接字段,或者；“计算2021年里每个创作者每月的涨粉率及截至当月的总粉丝量”；还需要筛选if_follow字段是0、1、2；
 
