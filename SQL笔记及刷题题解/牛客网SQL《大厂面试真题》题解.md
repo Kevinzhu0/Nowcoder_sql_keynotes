@@ -207,3 +207,39 @@ from main
 order by author,total_fans
 ~~~
 
+
+
+## **SQL160** **国庆期间每类视频点赞量和转发量**
+
+![image-20240523235951770](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240523235951770.png)
+
+**统计2021年国庆头3天每类视频每天的近一周总点赞量和一周内最大单天转发量，结果按视频类别降序、日期升序排序。假设数据库中数据足够多，至少每个类别下国庆头3天及之前一周的每天都有播放记录。**
+
+### 组合代码
+
+~~~mysql
+select *
+from
+(
+    select tag
+    ,date as dt
+    ,sum(like_cnt) over (partition by tag order by date rows between 6 preceding and current row) as sum_like_cnt_7d
+    ,max(retweet_cnt) over (partition by tag order by date rows between 6 preceding and current row) as max_retweet_cnt_7d
+    from 
+    (
+        select info.tag
+        ,date_format(log.start_time,'%Y-%m-%d') as date
+        ,sum(if_like) as like_cnt
+        ,sum(if_retweet) as retweet_cnt
+        from tb_user_video_log log
+        left join tb_video_info info
+        on log.video_id = info.video_id
+        group by info.tag, date_format(log.start_time,'%Y-%m-%d')
+    ) rt1
+) rt2
+where dt in ('2021-10-01', '2021-10-02', '2021-10-03')
+order by tag desc, dt asc
+~~~
+
+### 梳理代码逻辑思路
+
