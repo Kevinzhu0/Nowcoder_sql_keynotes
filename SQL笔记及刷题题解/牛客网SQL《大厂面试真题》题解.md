@@ -310,3 +310,61 @@ order by hot_index desc
 limit 3
 ~~~
 
+
+
+# 02 用户增长场景（某度信息流）	
+
+## **SQL162** **2021年11月每天的人均浏览文章时长**
+
+![image-20240524184228919](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240524184228919.png)
+
+**场景逻辑说明：**artical_id-文章ID**代表用户浏览的文章的ID，**artical_id-文章ID**为**0**表示用户在非文章内容页（比如App内的列表页、活动页等）。
+
+**问题**：统计2021年11月每天的人均浏览文章时长（秒数），结果保留1位小数，并按时长由短到长排序。
+
+### 梳理代码逻辑思路
+
+1、目标字段：date_format(in_time,'%Y-%m-%d') dt,人均浏览文章时长(秒数)，库表来源：用户行为日志表tb_user_log；
+
+2、筛选条件为artical_id!=0和month(in_time)=11 and month(out_time)=11;
+
+3、聚合依据：date_format(in_time,'%Y-%m-%d') dt；
+
+1. 查询1
+   1. 目标字段：date_format(in_time,'%Y-%m-%d') dt 日期，去重用户id: count( distinct uid) cnt用户人数，sum(timestampdiff(second, in_time, out_time)) duration 浏览文章总时长；
+   2. 库表来源：tb_user_log；
+   3. 筛选条件：where artical_id!=0 and month(in_time)=11 and month(out_time)=11；
+   4. 聚合依据：date_format(in_time,'%Y-%m-%d') dt；
+2. 查询2
+   1. 目标字段：dt,round(duration/cnt,1) avg_viiew_len_sec 人均浏览时长；
+   2. 库表来源：查询1；
+   3. 连接关系：无；
+   4. 筛选条件：无；
+   5. 聚合依据：无；
+   6. order by: order by avg_viiew_len_sec 升序排序；
+
+
+
+### 组合代码
+
+~~~mysql
+select dt
+,round(duration/cnt,1) avg_viiew_len_sec
+from
+(
+    select date_format(in_time,'%Y-%m-%d') dt
+    ,count( distinct uid) cnt
+    ,sum(timestampdiff(second, in_time, out_time)) duration
+    from tb_user_log
+    where artical_id!=0 and month(in_time)=11 and month(out_time)=11
+    group by 1
+) rt1
+order by avg_viiew_len_sec
+~~~
+
+
+
+
+
+
+
