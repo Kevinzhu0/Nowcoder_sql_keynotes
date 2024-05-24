@@ -364,6 +364,46 @@ order by avg_viiew_len_sec
 
 
 
+## **SQL163** **每篇文章同一时刻最大在看人数**
+
+![image-20240524192435369](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240524192435369.png)
+
+**问题**：统计每篇文章同一时刻最大在看人数，如果同一时刻有进入也有离开时，先记录用户数增加再记录减少，结果按最大人数降序。
+
+### 梳理代码逻辑和思路
+
+1. 将用户的进入时间单独拎出来，同时记为1；离开时间单独拎出来，同时记为-1，这样就聚合这两个表，按照时间排序，意思就是：进去一个加1，离开一个减1；
+2. 然后利用窗口函数对计数（1或者-1）求累计和，因为题目规定：同一时间有就有出的话先算进来的后算出去的，所以排序的时候就要看好了先按时间排序，再按计数排序；
+3. 然后再在每个分组里面去求最大max()的累积和就是最多同时在线的人数了；
+4. union和union all的区别就是：UNION` 会去除重复的行。如果要包含重复的行，可以使用 `UNION ALL；
+
+
+
+### 组合代码
+
+~~~mysql
+select artical_id, max(uv) as max_uv
+from 
+(
+    select artical_id
+    ,sum(tag) over (partition by artical_id order by dt,tag desc) as uv
+    from 
+    (
+        select artical_id, uid, in_time as dt, 1 as tag
+        from tb_user_log
+        where artical_id != 0
+        union
+        select artical_id, uid, out_time as dt, -1 as tag
+        from tb_user_log
+        where artical_id != 0
+    ) as t1
+) as t2
+group by artical_id
+order by max_uv desc
+~~~
+
+
+
 
 
 
