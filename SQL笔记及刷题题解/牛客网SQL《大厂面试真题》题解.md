@@ -232,7 +232,7 @@ from
         ,sum(if_like) as like_cnt
         ,sum(if_retweet) as retweet_cnt
         from tb_user_video_log log
-        left join tb_video_info info
+        join tb_video_info info
         on log.video_id = info.video_id
         group by info.tag, date_format(log.start_time,'%Y-%m-%d')
     ) rt1
@@ -242,4 +242,71 @@ order by tag desc, dt asc
 ~~~
 
 ### 梳理代码逻辑思路
+
+1、**看到这题，“近一周总点赞量和一周内最大单天转发量”--由此联想到窗口函数“order by date rows between 6 preceding and current row”**；但是，现有的表格中只有单天的点赞量和用户在当天的转发量，所以应使用聚合依据和聚合函数，以视频类别和log.start_time日期为group by分组聚合的依据；子查询中通过计算字段和聚合字段已经查询出了每个视频种类单天的总点赞量和单天的 总转发量便于外查询再次计算周总点赞量和周最大单天转发量；
+
+2、新建外查询，外查询中开聚合窗口函数并且以tag(视频类别)为partition by的分组聚合字段，以date升序排序，**rows between 6 preceding and current row**计算以今天为基准，今天以及前六天(共7天时间的总点赞量和最大单天转发量)；
+
+3、最后再建一个外查询，为了筛选出国庆前三天每类视频每天的近一周总点赞量和一周内最大单天转发量；添加where筛选条件：”where dt in ('2021-10-01', '2021-10-02', '2021-10-03')“；并且结果按视频类别降序、日期升序排序order by tag desc, dt asc；
+
+
+
+## **SQL161** **近一个月发布的视频中热度最高的top3视频**
+
+![image-20240524165720075](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240524165720075.png)
+
+**找出近一个月发布的视频中热度最高的top3视频**
+
+### 梳理逻辑思路
+
+1、**热度最高的top3视频**说明需要按照热度进行排名，如果视频热度不会有重复的，那么函数row_number()over()比较适合:可以输出唯一且连续的排名，最后通过筛选出前三名即可//limit 3；
+
+2、如果要筛选那么就得先计算出热度字段；根据题目要求：
+
+- 热度=(a*视频完播率+b*点赞数+c*评论数+d*转发数)*新鲜度==(a*视频完播率+b*点赞数+c*评论数+d*转发数)/(最近无播放天数+1)；
+
+- 新鲜度=1/(最近无播放天数+1)；
+- 当前配置的参数a,b,c,d分别为100、5、3、2。
+- 最近播放日期以**end_time-结束观看时间**为准，假设为T，则最近一个月按[T-29, T]闭区间统计；题目要求：最近播放日期为2021-10-03，以这个日期为开始日期；
+- 结果中热度保留为**整数**，并按热度**降序**排序。
+
+1. 查询1：
+   1. 目标字段：video_id,完播率(完成播放次数/被播放的总次数)，最近一个月总的的被点赞数，最近一个月总的的被评论数，最近一个月总的转发数，最近一个月无播放的总天数，最近无播放天数；
+   2. 库表来源：用户-视频互动表tb_user_video_log&短视频信息表tb_video_info;
+   3. 连接关系：以video_id为连接键连接互动表和短视频信息表；
+      1. 筛选条件：筛选近一个月发布的视频中的用户-视频互动表数据：where DATEDIFF((select max(end_time) from tb_user_video_log), info.release_time) <= 29;筛选完成播放的数据 : sum(case when timestampdiff(second, start_time, end_time) >= duration then 1 else 0 end);筛选出有评论的记录count(comment_id) comment_cnt;筛选出最近无播放天数：DATEDIFF((select max(end_time) from tb_user_video_log), max(end_time)) non_play_cnt，其中select max(end_time) from tb_user_video_log 是取整个表格中最近的日期，而max(end_time)后是有group by video_id的，取的是每个视频的最近日期。
+   4. 聚合依据：video_id；
+
+2. 查询2：
+   1. 目标字段：video_id视频id，,round((100*play_rate+5*like_cnt+3*comment_cnt+2*retweet_cnt)/(non_play_cnt+1),0) hot_index 热度；
+   2. 库表来源：查询1；
+   3. 连接关系：无;
+   4. 筛选条件：无;
+   5. 聚合依据：无;
+   6. order by hot_index desc;
+   7. limit 3;
+
+
+
+### 组合代码
+
+~~~mysql
+select rt1.video_id
+,round((100*play_rate+5*like_cnt+3*comment_cnt+2*retweet_cnt)/(non_play_cnt+1),0) hot_index
+from
+(
+    select log.video_id video_id
+    ,round(sum(case when timestampdiff(second, start_time, end_time) >= duration then 1 else 0 end)/count(log.video_id),1) play_rate
+    ,sum(if_like) like_cnt
+    ,count(comment_id) comment_cnt
+    ,sum(if_retweet) retweet_cnt
+    ,DATEDIFF((select max(end_time) from tb_user_video_log), max(end_time)) non_play_cnt
+    from tb_user_video_log log join tb_video_info info on
+    log.video_id=info.video_id
+    where DATEDIFF((select max(end_time) from tb_user_video_log), info.release_time) <= 29
+    group by 1
+) rt1
+order by hot_index desc
+limit 3
+~~~
 
