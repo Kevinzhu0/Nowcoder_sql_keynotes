@@ -404,7 +404,73 @@ order by max_uv desc
 
 
 
+## **SQL164** **2021年11月每天新用户的次日留存率**
 
+![image-20240526162615368](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240526162615368.png)
+
+**统计2021年11月每天新用户的次日留存率(保留2位小数)**
+
+注：
+
+- 次日留存率为当天新增的用户数中第二天又活跃了的用户数占比。
+- 如果**in_time-进入时间**和**out_time-离开时间**跨天了，在两天里都记为该用户活跃过，结果按日期升序。
+
+
+
+### 梳理逻辑思路
+
+1、根据留存率的计算公式：第一天登录过的新用户在第二天又登录的数量/第一天登陆过的新用户数量；分别计算这两个数量，套进公式里计算得出结果；
+
+2、目标字段：时间字段dt，uv_left_rate留存率字段；
+
+3、聚合依据：时间字段dt；
+
+4、筛选条件：2021年11月--where date_format(a.dt,"%Y-%m")='2021-11'；
+
+5、库表来源：用户行为日志表tb_user_log；
+
+1. 查询1：先计算出每个用户首次活跃日期
+   1. 以uid为聚合依据
+   2. 计算每个用户登录的日期的最小值：min(date(in_time)) dt，即首次登录日期；
+2. 查询2：计算每个用户的全部活跃日期
+   1. 将in_time&out_time两个时间的uid登录的用户的记录分开并使用union将表与表之间的数据进行上下拼接
+   2. 将查询1&2通过左连接left join连接起来；左边主表是用户第一次登录的记录、右边表如果不为none则为符合题目要求的次日登录的用户的记录，连接键为uid和a.dt=date_sub(b.dt,INTERVAL 1 day) ：表1的日期=表2日期减一天；
+3. 添加where筛选条件
+   1. where date_format(a.dt,'%Y-%m')='2021-11'
+4. 聚合依据group by
+   1. group by a.dt
+5. 新建外查询，计算题目要求的字段：次日留存率，保留2位小数
+   1. round(count(b.uid)/ count(a.uid),2) as uv_left_rate;
+
+
+
+###  组合代码
+
+~~~mysql
+select a.dt
+,round(count(b.uid)/ count(a.uid),2) as uv_left_rate
+from 
+(
+    select uid
+    ,min(date(in_time)) dt
+    from tb_user_log
+    group by uid
+) as a
+left join   
+(
+    select uid 
+    ,date(in_time) dt
+    from tb_user_log
+    union
+    select uid 
+    ,date(out_time)
+    from tb_user_log
+) as b
+on a.uid=b.uid
+and a.dt=date_sub(b.dt,INTERVAL 1 day)      
+where date_format(a.dt,"%Y-%m")='2021-11'
+group by a.dt
+~~~
 
 
 
