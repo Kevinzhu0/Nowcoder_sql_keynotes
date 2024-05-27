@@ -474,3 +474,120 @@ group by a.dt
 
 
 
+## **SQL165** **统计活跃间隔对用户分级结果**
+
+![image-20240527120538091](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240527120538091.png)
+
+**统计活跃间隔对用户分级后，各活跃等级用户占比，结果保留两位小数，且按占比降序排序**
+
+### 梳理逻辑思路
+
+**注**：
+
+- 用户等级标准简化为：忠实用户(近7天活跃过且非新晋用户)、新晋用户(近7天新增)、沉睡用户(近7天未活跃但更早前活跃过)、流失用户(近30天未活跃但更早前活跃过)。
+- 假设**今天**就是数据中所有日期的最大值。
+- 近7天表示包含当天T的近7天，即闭区间[T-6, T]。
+- 今天的日期为2021.11.04，根据用户分级标准，**用户行为日志表tb_user_log**中忠实用户有：109、108、104；新晋用户有105、102；沉睡用户有103；流失用户有101；共7个用户，因此他们的比例分别为0.43、0.29、0.14、0.14。
+
+![image-20240527123151703](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240527123151703.png)
+
+1、目标字段：用户等级标准--忠实用户、新晋用户、沉睡用户和流失用户；各自用户等级人数所占总用户人数的比例；
+
+2、库表来源：用户行为日志表tb_user_log；
+
+3、聚合依据：user_grade；
+
+4、排序依据：ORDER BY ratio DESC；
+
+5、从题目意思分析：
+
+1. 根据用户登录时间给用户分级，并计算对应级别的用户的数量和总的登陆过的用户的数量，然后按照公式计算各活跃等级的用户占比；
+
+2. 在select字段中添加一个**user_grade**的字段，通过case...when...then...end函数从原表中筛选，聚合依据为**uid**，从而能查询出每一个用户都属于哪个用户等级中；字段：select uid, (......) as user_grade;
+
+3. 如何把题目所述的用户等级标准：“用户等级标准简化为：忠实用户(近7天活跃过且非新晋用户)、新晋用户(近7天新增)、沉睡用户(近7天未活跃但更早前活跃过)、流失用户(近30天未活跃但更早前活跃过)。”转化为sql语句呢？
+
+   1. 忠实用户(近7天活跃过且非新晋用户)
+
+      * 近七天活跃：DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(max(in_time)))<=6
+
+        函数解释：DATEDIFF(DATE1,DATE2)--让(DATE1-DATE2)；
+
+        DATE1:(SELECT MAX(in_time) FROM tb_user_log))意思是从整张表格中找出最近一个登录时间；
+
+        DATE2:date(max(in_time))意思是从当前已经group by uid 分组去重之后的查询中找每一个用户对应的最近登录时间；
+
+        两者相减若小于等于6(因为还包含最近登录日期当天)即为近七天活跃过；
+
+      * 非新晋用户：DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(min(in_time)))>6
+
+        DATE1:同上解释；
+
+        DATE2：date(min(in_time))意思是从当前已经group by uid 分组去重之后的查询中找每一个用户对应的第一次登录时间；
+
+        两者相减若大于6(因为还包含最近登录日期的当天)，题目规定新晋用户(近7天新增)，所以如果用最近的一个时间减去首次登录时间大于6的话，即为非新晋用户；
+
+   2. 新晋用户(近7天新增)
+
+      + 近7天新增：DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(min(in_time)))<=6
+
+        DATE1:同上解释；
+
+        DATE2:date(min(in_time))用户首次登录的时间；
+
+        若两者相减<=6即为新新增的用户；
+
+   3. 沉睡用户(近7天未活跃但更早前活跃过)
+
+      + 近7天未活跃但更早前活跃过：WHEN DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(max(in_time))) BETWEEN 7 AND 29
+
+        DATE1:从整张表中查询出最近的日期；
+
+        DATE2:date(max(in_time))意思是从当前已经group by uid 分组去重之后的查询中找每一个用户对应的最近登录时间；
+
+        两者相减如果在7和29之间，就意味着不是新用户但是也在30天内活跃(登录)过；所以符合近7天未活跃但更早前活跃过；
+
+   4. 流失用户(近30天未活跃但更早前活跃过)
+
+      + 近30天未活跃但更早前活跃过：WHEN DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(max(in_time)))>29
+
+        DATE1:从整张表中查询出最近的日期；
+
+        DATE2:date(max(in_time))意思是从当前已经group by uid 分组去重之后的查询中找每一个用户对应的最近登录时间；
+
+        两者相减如果>29，就意味着最近29天该用户并未登录，即表示近30天未活跃但更早前活跃过；
+
+6、新建一个外查询GROUP BY user_grade；
+
++ 上一步已经将各登录用户的uid和对应的用户等级查询出了，这一步就根据user_grade分组去重，在select字段中新建计算字段：round(count(uid)/(select count(distinct uid) from tb_user_log),2) ；
++ 聚合依据为user_grade:GROUP BY user_grade
++ ORDER BY ratio DESC;
+
+
+
+### 组合代码
+
+~~~mysql
+SELECT user_grade, round(count(uid)/(select count(distinct uid) from tb_user_log),2) ratio
+FROM 
+(
+    SELECT uid
+    ,(CASE WHEN DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(max(in_time)))<=6
+            AND DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(min(in_time)))>6
+            THEN '忠实用户'
+            WHEN DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(min(in_time)))<=6
+            THEN '新晋用户'
+            WHEN DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(max(in_time))) BETWEEN 7 AND 29
+            THEN '沉睡用户'
+            WHEN DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(max(in_time)))>29
+            THEN '流失用户' END
+    ) AS user_grade
+    FROM tb_user_log
+    GROUP BY uid    
+) a
+GROUP BY user_grade
+ORDER BY ratio DESC;
+~~~
+
+
+
