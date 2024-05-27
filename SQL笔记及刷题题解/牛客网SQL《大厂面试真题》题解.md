@@ -591,3 +591,94 @@ ORDER BY ratio DESC;
 
 
 
+
+
+## **SQL166** **每天的日活数及新用户占比**
+
+![image-20240527233207871](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240527233207871.png)
+
+### 梳理逻辑思路
+
+**问题：统计每天的日活数及新用户占比**
+
+**注**：
+
+- 新用户占比=当天的新用户数÷当天活跃用户数（日活数）。
+- 如果**in_time-进入时间**和**out_time-离开时间**跨天了，在两天里都记为该用户活跃过。
+- 新用户占比保留2位小数，结果按日期升序排序。
+
+
+
+1. 根据题目意思
+
+   + 目标字段：用户登录的日期、当日日期用户活跃的数量、新用户在当日活跃用户中所占占比；
+   + 库表来源：用户行为日志表tb_user_log；
+   + 筛选条件：新用户(in_time最小，即为第一次登录)；
+   + 聚合依据：以登录日期为聚合依据，查询出每日日活跃用户数量；
+
+2. 计算当天新用户数量
+
+   ~~~mysql
+       select in_time,sum(new) as new_user
+       from 
+       (
+           select uid
+           ,date(in_time) as in_time
+           ,if(row_number() over (partition by uid order by in_time) = 1, 1, 0) new
+           from tb_user_log
+       ) b
+       group by in_time
+   ~~~
+
+3. 计算当天日活跃用户数量
+
+   ~~~mysql
+       select in_time
+       ,count(distinct uid) as user_cnt
+       from
+       (
+           select uid,date(in_time) as in_time
+           from tb_user_log
+           union 
+           select uid,date(out_time) as in_time
+           from tb_user_log
+       ) a
+       group by in_time
+   ~~~
+
+
+
+### 组合代码
+
+~~~mysql
+select rt2.in_time dt
+,rt2.user_cnt dau
+,round(rt1.new_user/rt2.user_cnt,2)
+from 
+(
+    select in_time,sum(new) as new_user
+    from 
+    (
+        select uid
+        ,date(in_time) as in_time
+        ,if(row_number() over (partition by uid order by in_time) = 1, 1, 0) new
+        from tb_user_log
+    ) b
+    group by in_time
+) rt1 join
+(
+    select in_time
+    ,count(distinct uid) as user_cnt
+    from
+    (
+        select uid,date(in_time) as in_time
+        from tb_user_log
+        union 
+        select uid,date(out_time) as in_time
+        from tb_user_log
+    ) a
+    group by in_time
+) rt2 on rt1.in_time=rt2.in_time
+order by dt
+~~~
+
