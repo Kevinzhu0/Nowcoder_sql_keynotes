@@ -1629,6 +1629,201 @@ join
     order by id
 ) sales2 on sales1.id=sales2.id and sales1.cnt=sales2.cnt
 
+#SQL276
+select rt2.id
+,rt2.is_group_buy
+,c.name
+from
+(
+    select id
+    ,is_group_buy
+    ,client_id
+    from
+    (
+        select user_id
+        ,client_id
+        ,id
+        ,is_group_buy
+        ,count(*)over(partition by user_id) ct
+        from order_info
+        where date>'2025-10-15' and status='completed' 
+        and (product_name='C++' or product_name='Java' or product_name='Python')
+    ) rt1
+    where rt1.ct>=2
+    order by id
+) rt2 left join client c on rt2.client_id=c.id
+order by id
+
+#SQL277
+select ifnull(c.name,'GroupBuy') source
+,count(*) cnt
+from
+(
+    select id
+    ,is_group_buy
+    ,client_id
+    from
+    (
+        select user_id
+        ,client_id
+        ,id
+        ,is_group_buy
+        ,count(*)over(partition by user_id) ct
+        from order_info
+        where date>'2025-10-15' and status='completed' 
+        and (product_name='C++' or product_name='Java' or product_name='Python')
+    ) rt1
+    where rt1.ct>=2
+    order by id
+) rt2 left join client c on rt2.client_id=c.id
+group by 1
+order by source
+
+
+#SQL278
+select job
+,sum(num) cnt
+from resume_info
+where year(date)=2025
+group by 1
+order by cnt desc
+
+#SQL279
+select job
+,date_format(date,'%Y-%m') mon
+,sum(num) cnt
+from resume_info
+where year(date)=2025
+group by 1,2
+order by mon desc,cnt desc
+
+#SQL280
+select rt1.job
+,first_year_mon
+,first_year_cnt
+,second_year_mon
+,second_year_cnt
+from
+(
+    select job
+    ,date_format(date,'%Y-%m') first_year_mon
+    ,month(date) month1
+    ,sum(num) first_year_cnt
+    from resume_info
+    where year(date)=2025
+    group by 1,2,3
+    order by first_year_mon desc,job desc
+) rt1
+
+join
+
+(
+    select job
+    ,date_format(date,'%Y-%m') second_year_mon
+    ,month(date) month2
+    ,sum(num) second_year_cnt
+    from resume_info
+    where year(date)=2026
+    group by 1,2,3
+    order by second_year_mon desc,job desc
+) rt2 on rt1.job=rt2.job and rt1.month1=rt2.month2
+
+#SQL281
+select grade
+,sum(class_grade.number)over(order by grade rows between unbounded preceding and current row) t_rank
+from class_grade
+
+#SQL282
+select grade 
+from
+(
+    select *
+    ,lag(number1,1,0) over() as number2 
+    from 
+    (
+        select *, sum(number) over(order by grade) number1 
+        ,(select round(sum(number)/2,0) from class_grade) s1
+        ,(select round((sum(number)+1)/2,0) from class_grade) s2
+        from class_grade
+    ) s
+) s3
+where (number2 < s1 and number1 >= s1) or (number2 < s2 and number1 >= s2)
+
+#SQL283
+select user.name
+,rt3.sum_grade
+from
+(
+    select rt2.user_id user_id
+    ,rt2.sum_grade sum_grade
+    from
+    (
+        select rt1.user_id user_id
+        ,rt1.sum_grade sum_grade
+        ,row_number()over(order by sum_grade desc) rk
+        from
+        (
+            select user_id
+            ,sum(grade_num)over(partition by user_id order by grade_num desc) sum_grade
+            from grade_info
+        ) rt1
+    ) rt2
+    where rt2.rk=1
+) rt3 join user on rt3.user_id=user.id
+
+#SQL284
+select user.id
+,user.name
+,rt3.sum_grade
+from
+(
+    select rt2.user_id user_id
+    ,rt2.sum_grade sum_grade
+    from
+    (
+        select rt1.user_id user_id
+        ,rt1.sum_grade sum_grade
+        ,dense_rank()over(order by sum_grade desc) rk
+        from
+        (
+            select user_id
+            ,sum(grade_num)over(partition by user_id order by grade_num desc) sum_grade
+            from grade_info
+        ) rt1
+    ) rt2
+    where rt2.rk=1
+) rt3 join user on rt3.user_id=user.id
+
+#SQL285
+select user.id
+,user.name
+,rt2.last_grade
+from
+(
+    select rt1.user_id
+    ,rt1.last_grade last_grade
+    ,dense_rank()over(order by last_grade desc) rk
+    from
+    (
+        select g1.user_id user_id
+        ,(g1.add_grade - ifnull(g2.reduce_grade,0)) last_grade
+        from
+        (
+            select user_id
+            ,sum(grade_num)over(partition by user_id order by grade_num desc) add_grade
+            from grade_info
+            where grade_info.type='add'
+        ) g1 left join
+        (
+            select user_id
+            ,sum(grade_num)over(partition by user_id order by grade_num desc) reduce_grade
+            from grade_info
+            where grade_info.type='reduce'
+        ) g2 on g1.user_id=g2.user_id
+    ) rt1
+) rt2 join user on user.id=rt2.user_id
+where rt2.rk=1
+group by 1,2,3
 
 #SQL286(中等，网易校招笔试题)
 select g.id
@@ -1640,3 +1835,249 @@ g.id=t.goods_id
 group by 1
 having total>20 and weight<50
 order by g.id asc
+
+
+#SQL156
+select rt3.video_id video_id
+,round(play_count/sumplay_count,3) avg_comp_play_rate
+from
+(
+    select rt2.video_id video_id
+    ,sum(count) play_count
+    from
+    (
+        select rt1.video_id video_id
+        ,(case when play_duration>=duration then 1 else 0 end) count
+        from
+        (
+            select tb_user_video_log.video_id video_id
+            ,(end_time-start_time) play_duration
+            ,duration
+            from tb_user_video_log join tb_video_info on tb_user_video_log.video_id=tb_video_info.video_id
+            where year(tb_user_video_log.start_time)=2021
+            group by 1,2
+            order by 1
+        ) rt1
+    ) rt2
+    group by 1
+) rt3
+join
+(
+    select video_id
+    ,count(*) sumplay_count
+    from tb_user_video_log
+    where year(tb_user_video_log.start_time)=2021
+    group by 1
+    order by 1
+) rt4 on rt3.video_id=rt4.video_id
+order by avg_comp_play_rate desc
+
+
+#SQL157
+select a.tag
+, avg_play_progress
+from 
+(
+    select tag
+    ,concat(round(avg(case when timestampdiff(second, start_time, end_time) >= duration then 1 else timestampdiff(second, start_time, end_time)/duration end)*100,2),'%') avg_play_progress
+    from tb_user_video_log t1
+    join tb_video_info t2
+    on t1.video_id=t2.video_id
+    group by tag
+) a
+where replace(avg_play_progress,'%','') > 60
+order by avg_play_progress DESC
+
+#SQL158
+select video_info.tag
+,sum(video_log.if_retweet) retweet_count
+,round(sum(video_log.if_retweet)/count(video_log.video_id),3) retweet_rate
+from tb_user_video_log video_log join tb_video_info video_info on
+video_log.video_id=video_info.video_id
+where datediff #筛选近30天的用户互动记录
+(
+    date
+    (
+        (select max(start_time) from tb_user_video_log)
+    )
+    ,date(start_time)
+) <= 29
+group by 1
+order by retweet_rate desc
+
+#SQL159
+with
+    main as(
+        #统计每个用户的播放量、加粉量、掉粉量
+        select 
+            author,
+            mid(start_time,1,7) as month,
+            count(start_time) as b,
+            count(if(if_follow = 1, 1, null)) as follow_add,
+            count(if(if_follow = 2, 1, null)) as follow_sub
+        from tb_user_video_log a, tb_video_info b
+        where a.video_id = b.video_id
+        and year(start_time) = 2021
+        group by author,month
+    )
+#计算2021年里每个创作者每月的涨粉率及截止当月的总粉丝量
+select 
+    author,
+    month,
+    round((follow_add-follow_sub)/b ,3) as fans_growth_rate,
+    sum(follow_add-follow_sub) over(partition by author order by month) as total_fans
+from main
+order by author,total_fans
+
+#SQL160
+select *
+from
+(
+    select tag
+    ,date as dt
+    ,sum(like_cnt) over (partition by tag order by date rows between 6 preceding and current row) as sum_like_cnt_7d
+    ,max(retweet_cnt) over (partition by tag order by date rows between 6 preceding and current row) as max_retweet_cnt_7d
+    from 
+    (
+        select info.tag
+        ,date_format(log.start_time,'%Y-%m-%d') as date
+        ,sum(if_like) as like_cnt
+        ,sum(if_retweet) as retweet_cnt
+        from tb_user_video_log log
+        join tb_video_info info
+        on log.video_id = info.video_id
+        group by info.tag, date_format(log.start_time,'%Y-%m-%d')
+    ) rt1
+) rt2
+where dt in ('2021-10-01', '2021-10-02', '2021-10-03')
+order by tag desc, dt asc
+
+#SQL161
+select rt1.video_id
+,round((100*play_rate+5*like_cnt+3*comment_cnt+2*retweet_cnt)/(non_play_cnt+1),0) hot_index
+from
+(
+    select log.video_id video_id
+    ,round(sum(case when timestampdiff(second, start_time, end_time) >= duration then 1 else 0 end)/count(log.video_id),1) play_rate
+    ,sum(if_like) like_cnt
+    ,count(comment_id) comment_cnt
+    ,sum(if_retweet) retweet_cnt
+    ,DATEDIFF((select max(end_time) from tb_user_video_log), max(end_time)) non_play_cnt
+    from tb_user_video_log log join tb_video_info info on
+    log.video_id=info.video_id
+    where DATEDIFF((select max(end_time) from tb_user_video_log), info.release_time) <= 29
+    group by 1
+) rt1
+order by hot_index desc
+limit 3
+
+#SQL162
+select dt
+,round(duration/cnt,1) avg_viiew_len_sec
+from
+(
+    select date_format(in_time,'%Y-%m-%d') dt
+    ,count( distinct uid) cnt
+    ,sum(timestampdiff(second, in_time, out_time)) duration
+    from tb_user_log
+    where artical_id!=0 and month(in_time)=11 and month(out_time)=11
+    group by 1
+) rt1
+order by avg_viiew_len_sec
+
+#SQL163
+select artical_id, max(uv) as max_uv
+from 
+(
+    select artical_id
+    ,sum(tag) over (partition by artical_id order by dt,tag desc) as uv
+    from 
+    (
+        select artical_id, uid, in_time as dt, 1 as tag
+        from tb_user_log
+        where artical_id != 0
+        union
+        select artical_id, uid, out_time as dt, -1 as tag
+        from tb_user_log
+        where artical_id != 0
+    ) as t1
+) as t2
+group by artical_id
+order by max_uv desc
+
+#SQL164
+select a.dt
+,round(count(b.uid)/ count(a.uid),2) as uv_left_rate
+from 
+(
+    select uid
+    ,min(date(in_time)) dt
+    from tb_user_log
+    group by uid
+) as a
+left join   
+(
+    select uid 
+    ,date(in_time) dt
+    from tb_user_log
+    union
+    select uid 
+    ,date(out_time)
+    from tb_user_log
+) as b
+on a.uid=b.uid
+and a.dt=date_sub(b.dt,INTERVAL 1 day)      
+where date_format(a.dt,"%Y-%m")='2021-11'
+group by a.dt
+
+#SQL165
+SELECT user_grade, round(count(uid)/(select count(distinct uid) from tb_user_log),2) ratio
+FROM 
+(
+    SELECT uid
+    ,(CASE WHEN DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(max(in_time)))<=6
+            AND DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(min(in_time)))>6
+            THEN '忠实用户'
+            WHEN DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(min(in_time)))<=6
+            THEN '新晋用户'
+            WHEN DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(max(in_time))) BETWEEN 7 AND 29
+            THEN '沉睡用户'
+            WHEN DATEDIFF(DATE((SELECT MAX(in_time) FROM tb_user_log)),date(max(in_time)))>29
+            THEN '流失用户' END
+    ) AS user_grade
+    FROM tb_user_log
+    GROUP BY uid    
+) a
+GROUP BY user_grade
+ORDER BY ratio DESC;
+
+#SQL166
+select rt2.in_time dt
+,rt2.user_cnt dau
+,round(rt1.new_user/rt2.user_cnt,2)
+from 
+(
+    select in_time,sum(new) as new_user
+    from 
+    (
+        select uid
+        ,date(in_time) as in_time
+        ,if(row_number() over (partition by uid order by in_time) = 1, 1, 0) new
+        from tb_user_log
+    ) b
+    group by in_time
+) rt1 join
+(
+    select in_time
+    ,count(distinct uid) as user_cnt
+    from
+    (
+        select uid,date(in_time) as in_time
+        from tb_user_log
+        union 
+        select uid,date(out_time) as in_time
+        from tb_user_log
+    ) a
+    group by in_time
+) rt2 on rt1.in_time=rt2.in_time
+order by dt
