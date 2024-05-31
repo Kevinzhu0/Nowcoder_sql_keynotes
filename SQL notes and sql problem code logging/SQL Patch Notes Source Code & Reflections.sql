@@ -2081,3 +2081,33 @@ from
     group by in_time
 ) rt2 on rt1.in_time=rt2.in_time
 order by dt
+
+#practice sql scenario question
+#sum new_user
+
+select in_time
+,sum(new) new_user
+from
+(
+    select uid
+    ,date(in_time) in_time
+    ,if(row_number()over(partition by uid order by in_time)=1,1,0)  new
+    from tb_user_log  
+) rt1
+group by 1
+
+#sum the number of userlogin
+
+select in_time
+,count(distinct uid) user_cnt
+from
+(
+    select uid
+    ,in_time
+    from tb_user_log
+    union
+    select uid
+    ,out_time
+    from tb_user_log
+) rt2
+group by 1
