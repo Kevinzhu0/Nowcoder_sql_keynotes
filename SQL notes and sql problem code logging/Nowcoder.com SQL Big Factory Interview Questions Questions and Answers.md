@@ -684,3 +684,93 @@ order by dt
 
 
 
+## **SQL167** **连续签到领金币**
+
+![image-20240605162551319](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240605162551319.png)
+
+
+
+### 梳理逻辑思路
+
+**计算每个用户2021年7月以来每月获得的金币数(该活动到10月底结束，11月1日开始的签到不再获得金币)。结果按月份、ID升序排序。**
+
+注：如果签到记录的in_time-进入时间和out_time-离开时间跨天了，只记作in_time对应的日期签到了。
+
+**场景逻辑说明**：
+
+- **artical_id-文章ID**代表用户浏览的文章的ID，特殊情况**artical_id-文章ID**为**0**表示用户在非文章内容页（比如App内的列表页、活动页等）。注意：只有artical_id为0时sign_in值才有效。
+- 从2021年7月7日0点开始，用户每天签到可以领1金币，并可以开始累积签到天数，连续签到的第3、7天分别可额外领2、6金币。
+- 每连续签到7天后重新累积签到天数（即重置签到天数：连续第8天签到时记为新的一轮签到的第一天，领1金币）
+
+
+
+1. 目标字段：uid，month，coin的数量；
+
+2. 库表来源：用户行为日志表tb_user_log；
+
+3. 连接关系：无;
+
+4. 筛选条件：where/having,where artical_id=0 and 7<=month(in_time)<11;2021-07-07<=date_format(in_time,'%Y-%m-%d')<2021-11-01 and sign_in=1;
+
+5. 聚合依据：uid和month为聚合依据，求sum(xxx) coin；
+
+6. 聚合函数：sum
+
+7. 梳理思路：
+
+   1. 首先添加一个 字段，记录每一个用户当天是第几次登录，同一天有多次登录记作同一次登录；
+
+      ![image-20240605175700007](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240605175700007.png)
+
+ 2. 第二步根据第一步，通过日期减去登录第几次的次数，求出每一个用户当天登录的记录下第一天的登录日期是什么时候，如果第一天的登录日期相同那么则为当前(第一天登录)日期下连续登陆的记录；
+
+    ![image-20240605180150657](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240605180150657.png)
+
+​	如上图：序号1-7为101用户的登录记录，可以看到该用户在周期下首次登录日期都为相同日期‘2021-07-06’；而序号8-12为102用户	的登录记录，可以由截图看出，该用户有两个连续登陆周期，分别连续登录了3天、2天，而这些判断都是由初始登录日期为依据的；
+
+ 3. 第三步根据第二步中得出的每一个周期的首次登陆日期和用户uid开窗口函数进行row_number()over()的赋值，并且进行-1）% 7	取余数的操作，这一步中该字段是确定第几天连续登录的依据，如果该数为0则为第一天登录，若为6则表示用户连续第7天登录，如果还有第八天这个row_number为7那么取余数也为0，根据题目意思，则重新计算另一个连续登陆周期，%7后为0则为新一轮周期的第一天登录；
+
+    ![image-20240605181330168](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240605181330168.png)
+
+ 4. 最后一个步骤就是根据上一步取得的连续登录天数，按照题目要求，对金币数进行求和，并以uid和month为聚合依据进行group by；核心代码逻辑就是使用case when end...函数以及求和聚合函数sum(),根据当前连续登陆的天数给用户赋予金币数最后求和；sum(case when t_tag=6 then 7 when t_tag=2 then 3 else 1 end) coin;当连续登陆天数为6的时候赋值7个金币，若为2则3个否则为1个, end;
+
+    ![image-20240605181614071](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240605181614071.png)
+
+
+
+### 组合代码
+
+~~~mysql
+select uid
+,date_format(dt,'%Y%m') month
+,sum(case when t_tag=6 then 7 when t_tag=2 then 3 else 1 end) coin
+from
+(
+    select uid,dt,(row_number()over(partition by uid,t_start order by dt)-1) % 7 t_tag
+    from
+    (
+        select uid,dt,date_sub(dt,interval t_count day) t_start
+        from
+        (
+            select uid
+            ,date(in_time) dt
+            ,dense_rank()over(partition by uid order by date(in_time)) t_count
+            from tb_user_log
+            where artical_id=0 and sign_in=1 and date(in_time) between '2021-07-07' and '2021-10-31'
+        ) rt1
+    ) rt2
+) rt3
+group by 1,2
+order by 2,1
+~~~
+
+
+
+
+
+
+
+
+
+
+
