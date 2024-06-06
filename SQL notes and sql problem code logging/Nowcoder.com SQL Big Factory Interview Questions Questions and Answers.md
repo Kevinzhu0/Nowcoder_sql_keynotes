@@ -806,9 +806,38 @@ order by 2
 
 
 
+## **SQL169** **统计2021年10月每个退货率不大于0.5的商品各项指标**
+
+![image-20240606154433546](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240606154433546.png)
 
 
 
+### 梳理逻辑思路
+
+大体的思路就是根据原表tb_user_event中的product_id聚合，然后使用sum聚合函数计算出各自商品在2021年10月份的总共点击数、展示数、加购数、付款数、退款数，然后根据各种率的计算公式计算，使用round函数保留3位小数，并且用case when then end函数避免分母为0的情况，最后筛选出退货率不大于0.5的记录；
+
+### 组合代码
+
+~~~mysql
+select product_id
+,ctr
+,cart_rate
+,payment_rate
+,refund_rate
+from
+(
+    select product_id
+    ,(case when count(product_id)=0 then 0 else round((sum(if_click)/count(product_id)),3) end) ctr
+    ,(case when sum(if_click)=0 then 0 else round((sum(if_cart)/sum(if_click)),3) end) cart_rate
+    ,(case when sum(if_cart)=0 then 0 else round((sum(if_payment)/sum(if_cart)),3) end) payment_rate
+    ,(case when sum(if_payment)=0 then 0 else round((sum(if_refund)/sum(if_payment)),3) end) refund_rate
+    from tb_user_event
+    where date(event_time) between '2021-10-01' and '2021-10-31'
+    group by 1
+) rt1
+where refund_rate<=0.5
+order by 1
+~~~
 
 
 
