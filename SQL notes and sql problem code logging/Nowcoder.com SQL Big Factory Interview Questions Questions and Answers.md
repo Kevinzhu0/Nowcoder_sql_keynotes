@@ -766,6 +766,50 @@ order by 2,1
 
 
 
+# 03 电商场景(某东商城)
+
+## SQL168** **计算商城中2021年每月的GMV**
+
+![image-20240606152705355](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240606152705355.png)
+
+
+
+### 梳理逻辑思路
+
+**注：GMV为已付款订单和未付款订单的两者之和，结果按照GMV升序排序。**
+
+1、目标字段：month、GMV;
+
+2、库表来源：订单总表tb_order_overall；
+
+3、连接关系：无；
+
+4、筛选条件：where/having: where status=0 or status=1,where year(event_time)=2021, having sum(total_amount)>100000;
+
+5、聚合依据：month,以月份为聚合依据，求每个月的销售额总和GMV;
+
+6、排序依据：order by GMV;
+
+
+
+### 组合代码
+
+~~~mysql
+select date_format(event_time,'%Y-%m') month
+,sum(total_amount) GMV
+from tb_order_overall
+where status=0 or status=1 and year(event_time)=2021
+group by 1
+having GMV>100000
+order by 2
+~~~
+
+
+
+
+
+
+
 
 
 
