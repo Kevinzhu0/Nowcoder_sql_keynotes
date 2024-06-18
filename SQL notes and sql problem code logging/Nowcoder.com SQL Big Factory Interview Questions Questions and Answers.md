@@ -841,9 +841,58 @@ order by 1
 
 
 
+## SQL 170 某店铺的各商品毛利率及店铺整体毛利率
+
+![image-20240618194623161](C:\Users\victory\AppData\Roaming\Typora\typora-user-images\image-20240618194623161.png)
+
+**注意**：
+
+1. 商品毛利率=（1-进价/平均单价售价）*100%；
+2. 店铺毛利率=（1-总进价成本/总销售收入）*100%；
+3. 结果先输出店铺毛利率，再按照商品ID升序输出各商品的商品毛利率，均保留1位小数；
+4. 问题：请计算2021年10月以来店铺901中商品毛利率大于24.9%的商品信息及店铺整体毛利率。
 
 
 
+### 梳理逻辑代码
+
+1. 库表来源from：商品信息表tb_product_info；订单总表tb_order_overall；订单明细表tb_order_detail；
+2. 连接关系：
+3. 筛选条件where/having：2021年10月以来：where date(event_time) >= '2021-10-01'；店铺901中：where shop_id=901；商品毛利率大于24.9%：having 毛利率>24.9%; **status-订单状态**为**1**表示已付款: where status=1;
+4. 聚合依据group by/partition by:
+5. 梳理思路：
+
+
+
+### 组合代码
+
+~~~mysql
+select rt3.product_id product_id
+,sum((in_price* rt3.cnt)) in_total
+,sum(sale_total) sale_total
+from
+(
+    select product_id
+    ,in_price
+    from tb_product_info
+    where shop_id='901'
+) rt2 join
+(
+    SELECT product_id
+    ,cnt
+    ,SUM(sale_total) AS sale_total
+    FROM (
+        SELECT de.product_id
+        ,de.cnt cnt
+        ,(de.price * de.cnt) AS sale_total
+        FROM tb_order_detail de
+        JOIN tb_order_overall o ON de.order_id = o.order_id
+        WHERE DATE(o.event_time) >= '2021-10-01' AND o.status = 1
+    ) AS r1
+    GROUP BY 1,2
+) rt3 on rt2.product_id=rt3.product_id
+group by 1
+~~~
 
 
 
